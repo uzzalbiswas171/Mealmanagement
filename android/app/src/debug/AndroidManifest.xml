@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <meta-data
+            android:name="com.google.firebase.appcheck.debug.DEBUG_TOKEN"
+            android:value="3f6a432a-97f1-4ee5-a5c5-c4de4ff66637" />
+    </application>
+</manifest>
