@@ -145,6 +145,7 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
     final isManager = appState.role == 'manager';
     if (!isManager) return;
 
+    final date = DateTime(_month.year, _month.month, day);
     final key = '${memberId}_$day';
     final existing = _cellData[key];
     final entry = MealEntry(
@@ -161,7 +162,6 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
       builder: (_) => EditMealSheet(
         entry: entry,
         onSave: (updated) async {
-          final date = DateTime(_month.year, _month.month, day);
           await MealService.upsertMeal(
             groupId: _groupId!,
             memberId: memberId,

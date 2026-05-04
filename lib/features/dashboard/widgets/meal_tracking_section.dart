@@ -8,6 +8,7 @@ import '../../../core/constants/app_text_styles.dart';
 import '../../../core/providers/app_state.dart';
 import '../../../data/models/meal_entry_model.dart';
 import '../../../data/models/member_model.dart';
+import '../../../core/utils/meal_time_guard.dart';
 import '../../../data/services/meal_service.dart';
 import '../../../data/services/member_service.dart';
 import '../screens/my_meal_history_screen.dart';
@@ -90,6 +91,13 @@ class _MealTrackingSectionState extends State<MealTrackingSection> {
   }
 
   void _showEditSheet(int index) {
+    final isManager = context.read<AppState>().role == 'manager';
+    final locks = lockedMealSlots(_today, isManager: isManager);
+    // After 4 PM all slots are locked for non-managers — nothing to edit
+    if (locks.night) {
+      showAllMealsLockedMessage(context);
+      return;
+    }
     final entry = _entries[index];
     showModalBottomSheet(
       context: context,
@@ -97,6 +105,9 @@ class _MealTrackingSectionState extends State<MealTrackingSection> {
       backgroundColor: Colors.transparent,
       builder: (_) => EditMealSheet(
         entry: entry,
+        lockMorning: locks.morning,
+        lockNoon: locks.noon,
+        lockNight: locks.night,
         onSave: (updated) async {
           final groupId = context.read<AppState>().groupId;
           if (groupId == null) return;
