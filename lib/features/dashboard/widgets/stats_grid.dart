@@ -60,10 +60,10 @@ class StatsGrid extends StatelessWidget {
         icon: Icons.shopping_basket_rounded,
         iconColor: AppColors.redAccent,
         iconBackground: AppColors.redLight,
-        badgeText: pendingMarket > 0 ? 'PENDING' : 'CLEAR',
         badgeColor: pendingMarket > 0 ? AppColors.redLight : AppColors.greenLight,
         badgeTextColor: pendingMarket > 0 ? AppColors.redAccent : AppColors.greenAccent,
       ),
+
       StatsCardData(
         title: 'Last Market',
         value: lastMarketAmount > 0 ? _fmt(lastMarketAmount) : '—',
@@ -72,6 +72,7 @@ class StatsGrid extends StatelessWidget {
         iconColor: AppColors.textSecondary,
         iconBackground: AppColors.greySurface,
       ),
+
     ];
 
     return LayoutBuilder(

@@ -167,6 +167,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
   double _totalPaid = 0;
   int _paidCount = 0;
   int _totalMembers = 0;
+  double _myMeals = 0;
+  double _myPaid = 0;
   int _todayNoon = 0;
   int _todayNight = 0;
   List<Map<String, dynamic>> _todayMealData = [];
@@ -212,6 +214,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   }
 
   void _setupStreams(String gid) {
+    final myId = context.read<AppState>().userId ?? '';
     // Manager, Bazar Kari, payment totals from members
     _membersSub = MemberService.watchMembers(gid).listen((snap) {
       if (!mounted) return;
@@ -219,6 +222,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
       String bazarKari = '';
       double paid = 0;
       int paidCount = 0;
+      double myMeals = 0;
+      double myPaid = 0;
       for (final doc in snap.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final role = data['role'] as String? ?? '';
@@ -231,6 +236,10 @@ class _DashboardBodyState extends State<_DashboardBody> {
           paid += amount;
           paidCount++;
         }
+        if (doc.id == myId) {
+          myMeals = (data['mealCount'] as num?)?.toDouble() ?? 0.0;
+          myPaid = amount;
+        }
       }
       setState(() {
         _managerName = manager;
@@ -238,6 +247,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
         _totalPaid = paid;
         _paidCount = paidCount;
         _totalMembers = snap.docs.length;
+        _myMeals = myMeals;
+        _myPaid = myPaid;
         _computeDayStats();
       });
     });
@@ -323,14 +334,17 @@ class _DashboardBodyState extends State<_DashboardBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const HeroBanner(),
+              HeroBanner(
+                myMeals: _myMeals,
+                mealRate: _mealRate,
+                myPaid: _myPaid,
+              ),
               Padding(
                 padding: ResponsiveHelper.screenPadding(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-
                     StatsGrid(
                       managerName: _managerName,
                       bazarKariName: _bazarKariName,
