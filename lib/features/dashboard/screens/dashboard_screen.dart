@@ -11,6 +11,7 @@ import '../../../data/models/market_entry_model.dart';
 import '../../../data/services/market_service.dart';
 import '../../../data/services/meal_service.dart';
 import '../../../data/services/member_service.dart';
+import '../../chat/screens/chat_screen.dart';
 import '../../market/screens/market_screen.dart';
 import 'monthly_meal_chart_screen.dart';
 import '../../meal_off/screens/meal_off_screen.dart';
@@ -52,6 +53,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const MembersScreenBody();
       case 3:
         return const MealOffScreen();
+      case 4:
+        return const ChatBody();
       default:
         return const _DashboardBody();
     }
@@ -130,6 +133,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icon(Icons.no_meals_outlined),
             selectedIcon: Icon(Icons.no_meals_rounded),
             label: 'Meal Off',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline_rounded),
+            selectedIcon: Icon(Icons.chat_bubble_rounded),
+            label: 'Chat',
           ),
         ],
       ),
