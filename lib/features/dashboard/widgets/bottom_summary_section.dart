@@ -52,16 +52,16 @@ class BottomSummarySection extends StatelessWidget {
             valueColor: AppColors.primaryBlue,
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: SummaryCard(
-            label: 'Total Cost',
-            value: _fmt(totalCost),
-            backgroundColor: AppColors.greenLight,
-            labelColor: AppColors.greenAccent,
-            valueColor: AppColors.greenAccent,
-          ),
-        ),
+        // const SizedBox(width: 12),
+        // Expanded(
+        //   child: SummaryCard(
+        //     label: 'Meal market',
+        //     value: _fmt(totalCost),
+        //     backgroundColor: AppColors.greenLight,
+        //     labelColor: AppColors.greenAccent,
+        //     valueColor: AppColors.greenAccent,
+        //   ),
+        // ),
       ],
     );
   }

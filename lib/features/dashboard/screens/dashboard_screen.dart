@@ -7,10 +7,13 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_state.dart';
 import '../../../core/utils/responsive_helper.dart';
+import '../../../data/models/extra_market_entry_model.dart';
 import '../../../data/models/market_entry_model.dart';
+import '../../../data/services/extra_market_service.dart';
 import '../../../data/services/market_service.dart';
 import '../../../data/services/meal_service.dart';
 import '../../../data/services/member_service.dart';
+import '../../chat/screens/chat_screen.dart';
 import '../../market/screens/market_screen.dart';
 import 'monthly_meal_chart_screen.dart';
 import '../../meal_off/screens/meal_off_screen.dart';
@@ -52,6 +55,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const MembersScreenBody();
       case 3:
         return const MealOffScreen();
+      case 4:
+        return const ChatBody();
       default:
         return const _DashboardBody();
     }
@@ -85,55 +90,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       },
       child: Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      appBar: AppHeader(
-        action: _headerAction,
-        onActionTap: _currentIndex == 1
-            ? () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              )
-            : null,
-        onAvatarTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+        backgroundColor: AppColors.scaffoldBg,
+        appBar: AppHeader(
+          action: _headerAction,
+          onActionTap: _currentIndex == 1
+              ? () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                )
+              : null,
+          onAvatarTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          ),
+        ),
+        body: MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.0)),
+          child: _buildBody(),
+        ),
+        bottomNavigationBar: NavigationBar(
+          height: 65,
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) =>
+              setState(() => _currentIndex = index),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard_rounded),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.shopping_cart_outlined),
+              selectedIcon: Icon(Icons.shopping_cart_rounded),
+              label: 'Market',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.people_outline_rounded),
+              selectedIcon: Icon(Icons.people_rounded),
+              label: 'Members',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.no_meals_outlined),
+              selectedIcon: Icon(Icons.no_meals_rounded),
+              label: 'Meal Off',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.chat_bubble_outline_rounded),
+              selectedIcon: Icon(Icons.chat_bubble_rounded),
+              label: 'Chat',
+            ),
+          ],
         ),
       ),
-      body: MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: const TextScaler.linear(1.0)),
-        child: _buildBody(),
-      ),
-      bottomNavigationBar: NavigationBar(
-        height: 65,
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shopping_cart_outlined),
-            selectedIcon: Icon(Icons.shopping_cart_rounded),
-            label: 'Market',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline_rounded),
-            selectedIcon: Icon(Icons.people_rounded),
-            label: 'Members',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.no_meals_outlined),
-            selectedIcon: Icon(Icons.no_meals_rounded),
-            label: 'Meal Off',
-          ),
-        ],
-      ),
-    ),
     );
   }
 }
@@ -152,6 +163,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   StreamSubscription<QuerySnapshot>? _marketSub;
   StreamSubscription<QuerySnapshot>? _mealsSub;
   StreamSubscription<QuerySnapshot>? _monthlyMealsSub;
+  StreamSubscription<QuerySnapshot>? _extraMarketSub;
   String? _groupId;
 
   String _managerName = '';
@@ -159,6 +171,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
   double _totalPaid = 0;
   int _paidCount = 0;
   int _totalMembers = 0;
+  double _myMeals = 0;
+  double _myPaid = 0;
   int _todayNoon = 0;
   int _todayNight = 0;
   List<Map<String, dynamic>> _todayMealData = [];
@@ -166,6 +180,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   double _lastMarketAmount = 0;
   String _lastMarketDate = '';
   double _monthlyMarketTotal = 0;
+  double _extraMarketMonthTotal = 0;
   int _monthlyMeals = 0;
 
   double get _mealRate =>
@@ -204,6 +219,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   }
 
   void _setupStreams(String gid) {
+    final myId = context.read<AppState>().userId ?? '';
     // Manager, Bazar Kari, payment totals from members
     _membersSub = MemberService.watchMembers(gid).listen((snap) {
       if (!mounted) return;
@@ -211,6 +227,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
       String bazarKari = '';
       double paid = 0;
       int paidCount = 0;
+      double myMeals = 0;
+      double myPaid = 0;
       for (final doc in snap.docs) {
         final data = doc.data() as Map<String, dynamic>;
         final role = data['role'] as String? ?? '';
@@ -223,6 +241,10 @@ class _DashboardBodyState extends State<_DashboardBody> {
           paid += amount;
           paidCount++;
         }
+        if (doc.id == myId) {
+          myMeals = (data['mealCount'] as num?)?.toDouble() ?? 0.0;
+          myPaid = amount;
+        }
       }
       setState(() {
         _managerName = manager;
@@ -230,6 +252,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
         _totalPaid = paid;
         _paidCount = paidCount;
         _totalMembers = snap.docs.length;
+        _myMeals = myMeals;
+        _myPaid = myPaid;
         _computeDayStats();
       });
     });
@@ -262,7 +286,9 @@ class _DashboardBodyState extends State<_DashboardBody> {
     });
 
     // Today's meals
-    _mealsSub = MealService.watchMealsForDate(gid, DateTime.now()).listen((snap) {
+    _mealsSub = MealService.watchMealsForDate(gid, DateTime.now()).listen((
+      snap,
+    ) {
       if (!mounted) return;
       setState(() {
         _todayMealData = snap.docs
@@ -270,6 +296,23 @@ class _DashboardBodyState extends State<_DashboardBody> {
             .toList();
         _computeDayStats();
       });
+    });
+
+    // Extra market monthly total
+    _extraMarketSub?.cancel();
+    _extraMarketSub = ExtraMarketService.watchEntries(gid).listen((snap) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      final total = snap.docs
+          .map((d) => ExtraMarketEntry.fromFirestore(d))
+          .where(
+            (e) =>
+                e.date != null &&
+                e.date!.year == now.year &&
+                e.date!.month == now.month,
+          )
+          .fold(0.0, (acc, e) => acc + e.amount);
+      setState(() => _extraMarketMonthTotal = total);
     });
 
     // Monthly total meals — used to compute meal rate.
@@ -281,8 +324,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
       if (!mounted) return;
       final total = snap.docs
           .where((d) {
-            final ts = (d.data() as Map<String, dynamic>)['entryDate']
-                as Timestamp?;
+            final ts =
+                (d.data() as Map<String, dynamic>)['entryDate'] as Timestamp?;
             return ts == null || ts.toDate().isBefore(todayCutoff);
           })
           .fold<int>(
@@ -302,6 +345,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
     _marketSub?.cancel();
     _mealsSub?.cancel();
     _monthlyMealsSub?.cancel();
+    _extraMarketSub?.cancel();
     super.dispose();
   }
 
@@ -315,14 +359,19 @@ class _DashboardBodyState extends State<_DashboardBody> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const HeroBanner(),
+              HeroBanner(
+                myMeals: _myMeals,
+                mealRate: _mealRate,
+                myPaid: _myPaid,
+                totalExtraMarket: _extraMarketMonthTotal,
+                totalNumberOfMembers: _totalMembers.toDouble(),
+              ),
               Padding(
                 padding: ResponsiveHelper.screenPadding(context),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-
                     StatsGrid(
                       managerName: _managerName,
                       bazarKariName: _bazarKariName,
@@ -340,6 +389,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                       totalPending: _totalPaid - _monthlyMarketTotal,
                       paidCount: _paidCount,
                       totalMembers: _totalMembers,
+                      extraMarketTotal: _extraMarketMonthTotal,
                     ),
                     const SizedBox(height: 20),
                     BottomSummarySection(
@@ -367,8 +417,20 @@ class _MonthlyChartCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun',
-                 'Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mo = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -401,8 +463,11 @@ class _MonthlyChartCard extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.table_chart_rounded,
-                  color: Colors.white, size: 24),
+              child: const Icon(
+                Icons.table_chart_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -430,8 +495,11 @@ class _MonthlyChartCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: Colors.white70, size: 24),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white70,
+              size: 24,
+            ),
           ],
         ),
       ),

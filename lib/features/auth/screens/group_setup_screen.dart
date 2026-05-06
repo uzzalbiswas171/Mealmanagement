@@ -16,14 +16,41 @@ class GroupSetupScreen extends StatefulWidget {
 }
 
 class _GroupSetupScreenState extends State<GroupSetupScreen> {
+  final _createFormKey = GlobalKey<FormState>();
   final _joinFormKey = GlobalKey<FormState>();
+  final _groupNameCtrl = TextEditingController();
   final _inviteCodeCtrl = TextEditingController();
+  bool _creating = false;
   bool _joining = false;
 
   @override
   void dispose() {
+    _groupNameCtrl.dispose();
     _inviteCodeCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _createGroup() async {
+    if (_createFormKey.currentState?.validate() != true) return;
+    setState(() => _creating = true);
+    try {
+      final groupId = await GroupService.createGroup(
+        _groupNameCtrl.text.trim(),
+      );
+      if (!mounted) return;
+      await context.read<AppState>().loadFromFirestore(groupId);
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        (_) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 
   Future<void> _joinGroup() async {
@@ -133,69 +160,69 @@ class _GroupSetupScreenState extends State<GroupSetupScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 32, 20, 24),
                 child: Column(
                   children: [
-                    // // Create group card
-                    // _SectionCard(
-                    //   icon: Icons.add_circle_outline_rounded,
-                    //   title: 'Create New Group',
-                    //   subtitle: 'Start a new mess group and invite members',
-                    //   child: Form(
-                    //     key: _createFormKey,
-                    //     child: Column(
-                    //       children: [
-                    //         _GroupField(
-                    //           controller: _groupNameCtrl,
-                    //           label: 'Group Name',
-                    //           icon: Icons.group_outlined,
-                    //           validator: (v) => (v?.trim().isEmpty ?? true)
-                    //               ? 'Group name is required'
-                    //               : null,
-                    //         ),
-                    //         const SizedBox(height: 16),
-                    //         SizedBox(
-                    //           width: double.infinity,
-                    //           child: ElevatedButton(
-                    //             onPressed: _creating ? null : _createGroup,
-                    //             style: ElevatedButton.styleFrom(
-                    //               backgroundColor: AppColors.primaryBlue,
-                    //               foregroundColor: Colors.white,
-                    //               padding:
-                    //                   const EdgeInsets.symmetric(vertical: 14),
-                    //               shape: RoundedRectangleBorder(
-                    //                   borderRadius: BorderRadius.circular(12)),
-                    //               elevation: 0,
-                    //             ),
-                    //             child: _creating
-                    //                 ? const SizedBox(
-                    //                     width: 20,
-                    //                     height: 20,
-                    //                     child: CircularProgressIndicator(
-                    //                         strokeWidth: 2,
-                    //                         color: Colors.white))
-                    //                 : Text('Create Group',
-                    //                     style: AppTextStyles.headingSmall
-                    //                         .copyWith(color: Colors.white)),
-                    //           ),
-                    //         ),
-                    //       ],
-                    //     ),
-                    //   ),
-                    // ),
+                    // Create group card
+                    _SectionCard(
+                      icon: Icons.add_circle_outline_rounded,
+                      title: 'Create New Group',
+                      subtitle: 'Start a new mess group and invite members',
+                      child: Form(
+                        key: _createFormKey,
+                        child: Column(
+                          children: [
+                            _GroupField(
+                              controller: _groupNameCtrl,
+                              label: 'Group Name',
+                              icon: Icons.group_outlined,
+                              validator: (v) => (v?.trim().isEmpty ?? true)
+                                  ? 'Group name is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _creating ? null : _createGroup,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryBlue,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                  elevation: 0,
+                                ),
+                                child: _creating
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white))
+                                    : Text('Create Group',
+                                        style: AppTextStyles.headingSmall
+                                            .copyWith(color: Colors.white)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
 
-                    // const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                    // // Divider
-                    // Row(
-                    //   children: [
-                    //     const Expanded(child: Divider()),
-                    //     Padding(
-                    //       padding: const EdgeInsets.symmetric(horizontal: 12),
-                    //       child: Text('OR',
-                    //           style: AppTextStyles.bodySmall
-                    //               .copyWith(color: AppColors.textSecondary)),
-                    //     ),
-                    //     const Expanded(child: Divider()),
-                    //   ],
-                    // ),
+                    // Divider
+                    Row(
+                      children: [
+                        const Expanded(child: Divider()),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text('OR',
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textSecondary)),
+                        ),
+                        const Expanded(child: Divider()),
+                      ],
+                    ),
                     const SizedBox(height: 16),
 
                     // Join group card

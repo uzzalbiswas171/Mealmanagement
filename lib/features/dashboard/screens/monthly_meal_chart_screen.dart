@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
@@ -42,6 +45,7 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
 
   String? _groupId;
   bool _loadingMeals = true;
+  bool _generatingPdf = false;
 
   @override
   void initState() {
@@ -145,6 +149,7 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
     final isManager = appState.role == 'manager';
     if (!isManager) return;
 
+    final date = DateTime(_month.year, _month.month, day);
     final key = '${memberId}_$day';
     final existing = _cellData[key];
     final entry = MealEntry(
@@ -161,7 +166,6 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
       builder: (_) => EditMealSheet(
         entry: entry,
         onSave: (updated) async {
-          final date = DateTime(_month.year, _month.month, day);
           await MealService.upsertMeal(
             groupId: _groupId!,
             memberId: memberId,
@@ -174,6 +178,241 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
         },
       ),
     );
+  }
+
+  // ── PDF Export ──────────────────────────────────────────────────────────────
+
+  Future<void> _exportPdf() async {
+    if (_members.isEmpty || _loadingMeals) return;
+    setState(() => _generatingPdf = true);
+
+    try {
+      final appState = context.read<AppState>();
+      final defaultMorning = appState.defaultMorning.toDouble();
+      final defaultNoon = appState.defaultNoon.toDouble();
+      final defaultNight = appState.defaultNight.toDouble();
+
+      const moFull = [
+        'January','February','March','April','May','June',
+        'July','August','September','October','November','December',
+      ];
+      const moShort = [
+        'Jan','Feb','Mar','Apr','May','Jun',
+        'Jul','Aug','Sep','Oct','Nov','Dec',
+      ];
+      final monthLabel = '${moFull[_month.month - 1]} ${_month.year}';
+      final now = DateTime.now();
+      final generated =
+          '${now.day} ${moShort[now.month - 1]} ${now.year}  '
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+      // Pre-compute per-member totals
+      final totals = {
+        for (final m in _members) m.id: () {
+          double tm = 0, tn = 0, tnt = 0;
+          for (int d = 1; d <= _daysInMonth; d++) {
+            final cell = _cellData['${m.id}_$d'];
+            tm  += cell?.m    ?? defaultMorning;
+            tn  += cell?.noon ?? defaultNoon;
+            tnt += cell?.night ?? defaultNight;
+          }
+          return (m: tm, noon: tn, night: tnt);
+        }(),
+      };
+
+      // ── PDF helpers ──────────────────────────────────────────────────────
+
+      pw.Widget hdr(String text, {bool light = false}) => pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+        alignment: pw.Alignment.center,
+        child: pw.Text(
+          text,
+          style: pw.TextStyle(
+            fontSize: 8,
+            fontWeight: pw.FontWeight.bold,
+            color: light ? PdfColors.white : PdfColors.blueGrey800,
+          ),
+          textAlign: pw.TextAlign.center,
+          maxLines: 2,
+          overflow: pw.TextOverflow.clip,
+        ),
+      );
+
+      pw.Widget sub(String text) => pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 3),
+        alignment: pw.Alignment.center,
+        child: pw.Text(
+          text,
+          style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
+          textAlign: pw.TextAlign.center,
+        ),
+      );
+
+      pw.Widget dateCell(int day, bool isToday) => pw.Container(
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+        alignment: pw.Alignment.center,
+        child: pw.Text(
+          '$day ${moShort[_month.month - 1]}',
+          style: pw.TextStyle(
+            fontSize: 8,
+            fontWeight: isToday ? pw.FontWeight.bold : pw.FontWeight.normal,
+            color: isToday ? PdfColors.blue800 : PdfColors.grey700,
+          ),
+          textAlign: pw.TextAlign.center,
+        ),
+      );
+
+      pw.Widget mealCell(
+          String mv, String nv, String ntv, bool hasData,
+          {bool bold = false}) =>
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 5),
+            alignment: pw.Alignment.center,
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceEvenly,
+              children: [mv, nv, ntv].map((v) => pw.Text(
+                v,
+                style: pw.TextStyle(
+                  fontSize: 8,
+                  fontWeight: (hasData || bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
+                  color: hasData ? PdfColors.black : PdfColors.grey400,
+                ),
+              )).toList(),
+            ),
+          );
+
+      // ── Build document ───────────────────────────────────────────────────
+
+      final pdf = pw.Document();
+
+      final colWidths = <int, pw.TableColumnWidth>{
+        0: const pw.FixedColumnWidth(52),
+      };
+      for (int i = 0; i < _members.length; i++) {
+        colWidths[i + 1] = const pw.FlexColumnWidth(1);
+      }
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.fromLTRB(20, 20, 20, 20),
+          header: (ctx) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Meal Chart — $monthLabel',
+                    style: pw.TextStyle(
+                      fontSize: 15,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.blue900,
+                    ),
+                  ),
+                  pw.Text(
+                    'Generated: $generated',
+                    style: const pw.TextStyle(
+                        fontSize: 8, color: PdfColors.grey600),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 5),
+              pw.Divider(color: PdfColors.blue200, thickness: 0.8),
+              pw.SizedBox(height: 4),
+            ],
+          ),
+          build: (ctx) => [
+            pw.Table(
+              columnWidths: colWidths,
+              border: pw.TableBorder.all(
+                  color: PdfColors.grey300, width: 0.5),
+              children: [
+                // Row 1: member name headers
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.blue900),
+                  children: [
+                    hdr('Date', light: true),
+                    ..._members.map((m) => hdr(
+                      m.name.length > 13
+                          ? '${m.name.substring(0, 12)}…'
+                          : m.name,
+                      light: true,
+                    )),
+                  ],
+                ),
+                // Row 2: m / noon / night sub-labels
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.blue50),
+                  children: [
+                    sub('Day'),
+                    ..._members.map((_) => sub('m  noon  night')),
+                  ],
+                ),
+                // Data rows (one per day)
+                ...List.generate(_daysInMonth, (i) {
+                  final day = i + 1;
+                  final isToday = now.year == _month.year &&
+                      now.month == _month.month &&
+                      now.day == day;
+                  return pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                      color: isToday
+                          ? PdfColors.blue50
+                          : (i.isEven ? PdfColors.grey50 : PdfColors.white),
+                    ),
+                    children: [
+                      dateCell(day, isToday),
+                      ..._members.map((m) {
+                        final key = '${m.id}_$day';
+                        final cell = _cellData[key];
+                        final hasData = _cellData.containsKey(key);
+                        return mealCell(
+                          _fmt(cell?.m ?? defaultMorning),
+                          _fmt(cell?.noon ?? defaultNoon),
+                          _fmt(cell?.night ?? defaultNight),
+                          hasData,
+                        );
+                      }),
+                    ],
+                  );
+                }),
+                // Totals row
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: PdfColors.blue100),
+                  children: [
+                    hdr('TOTAL'),
+                    ..._members.map((m) {
+                      final t = totals[m.id]!;
+                      return mealCell(
+                        _fmt(t.m), _fmt(t.noon), _fmt(t.night),
+                        true, bold: true,
+                      );
+                    }),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      final filename =
+          'meal_chart_${_month.year}_${_month.month.toString().padLeft(2, '0')}.pdf';
+      await Printing.sharePdf(bytes: await pdf.save(), filename: filename);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('PDF export failed: $e',
+            style: const TextStyle(color: Colors.white, fontSize: 13)),
+        backgroundColor: AppColors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    } finally {
+      if (mounted) setState(() => _generatingPdf = false);
+    }
   }
 
   @override
@@ -206,7 +445,8 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
       child: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Color(0x12000000), blurRadius: 4, offset: Offset(0, 2))],
+          boxShadow: [BoxShadow(
+              color: Color(0x12000000), blurRadius: 4, offset: Offset(0, 2))],
         ),
         child: SafeArea(
           bottom: false,
@@ -226,6 +466,27 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
                     style: AppTextStyles.appBarTitle,
                   ),
                 ),
+                if (_generatingPdf)
+                  const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primaryBlue),
+                    ),
+                  )
+                else
+                  IconButton(
+                    onPressed: (_members.isEmpty || _loadingMeals)
+                        ? null
+                        : _exportPdf,
+                    icon: const Icon(Icons.picture_as_pdf_rounded,
+                        color: AppColors.primaryBlue),
+                    tooltip: 'Download PDF',
+                  ),
+                const SizedBox(width: 4),
               ],
             ),
           ),
@@ -283,7 +544,6 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
           color: const Color(0xFFF8F9FA),
           child: Row(
             children: [
-              // date column header
               SizedBox(
                 width: _dateColW,
                 height: _headerH,
@@ -294,7 +554,6 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
                 ),
               ),
               Container(width: 1, height: _headerH, color: const Color(0xFFE8EAF0)),
-              // member headers (horizontal scroll synced with body)
               Expanded(
                 child: SingleChildScrollView(
                   controller: _hHeadCtrl,
@@ -337,7 +596,6 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
                   ),
                 ),
               ),
-              // edit col header
               SizedBox(
                 width: 40,
                 height: _headerH,
@@ -407,12 +665,16 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
                                   child: Container(
                                     decoration: BoxDecoration(
                                       border: Border(
-                                        bottom: BorderSide(color: const Color(0xFFF0F2F8), width: day < _daysInMonth ? 1 : 0),
-                                        right: const BorderSide(color: Color(0xFFF0F2F8)),
+                                        bottom: BorderSide(
+                                            color: const Color(0xFFF0F2F8),
+                                            width: day < _daysInMonth ? 1 : 0),
+                                        right: const BorderSide(
+                                            color: Color(0xFFF0F2F8)),
                                       ),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceEvenly,
                                       children: [
                                         _ValChip(val: _fmt(mv), hasData: hasData),
                                         _ValChip(val: _fmt(nv), hasData: hasData),
@@ -441,9 +703,11 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
                         child: Center(
                           child: isManager
                               ? GestureDetector(
-                                  onTap: () => _showDayEditMenu(day, isManager, userId),
+                                  onTap: () =>
+                                      _showDayEditMenu(day, isManager, userId),
                                   child: const Icon(Icons.edit_outlined,
-                                      size: 16, color: AppColors.textSecondary),
+                                      size: 16,
+                                      color: AppColors.textSecondary),
                                 )
                               : const SizedBox.shrink(),
                         ),
@@ -530,7 +794,8 @@ class _MonthlyMealChartScreenState extends State<MonthlyMealChartScreen> {
                       Navigator.pop(ctx);
                       _openEdit(day, m.id, m.name);
                     },
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 20),
                   )).toList(),
                 ),
               ),

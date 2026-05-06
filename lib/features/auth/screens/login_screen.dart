@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mealmanagement/features/auth/screens/db_cleanup_screen.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../data/services/auth_service.dart';
@@ -93,9 +94,12 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               // blue header
               Container(
+                margin:EdgeInsets.only(top: 100),
+                height: 240,
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(24, 48, 24, 40),
                 decoration: const BoxDecoration(
+                  image: DecorationImage(image: AssetImage("assets/images/u_brand.png"),fit: BoxFit.fill),
                   gradient: LinearGradient(
                     colors: [
                       AppColors.primaryBlue,
@@ -106,28 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   borderRadius:
                       BorderRadius.vertical(bottom: Radius.circular(32)),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 68,
-                      height: 68,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.restaurant_menu_rounded,
-                          color: Colors.white, size: 34),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Welcome Back',
-                        style: AppTextStyles.headingLarge.copyWith(
-                            color: Colors.white, fontSize: 24)),
-                    const SizedBox(height: 4),
-                    Text('Sign in to your mess account',
-                        style: AppTextStyles.bodyMedium
-                            .copyWith(color: Colors.white70)),
-                  ],
                 ),
               ),
 
@@ -168,16 +150,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             ? 'Password is required'
                             : null,
                       ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _forgotPassword,
-                          child: Text('Forgot Password?',
-                              style: AppTextStyles.bodySmall.copyWith(
-                                  color: AppColors.primaryBlue)),
-                        ),
-                      ),
+                      // const SizedBox(height: 8),
+                      // Align(
+                      //   alignment: Alignment.centerRight,
+                      //   child: TextButton(
+                      //     onPressed: _forgotPassword,
+                      //     child: Text('Forgot Password?',
+                      //         style: AppTextStyles.bodySmall.copyWith(
+                      //             color: AppColors.primaryBlue)),
+                      //   ),
+                      // ),
                       const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,

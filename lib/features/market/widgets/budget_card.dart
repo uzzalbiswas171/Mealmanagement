@@ -7,6 +7,7 @@ class BudgetCard extends StatelessWidget {
   final double totalPending;
   final int paidCount;
   final int totalMembers;
+  final double extraMarketTotal;
 
   const BudgetCard({
     super.key,
@@ -14,6 +15,7 @@ class BudgetCard extends StatelessWidget {
     required this.totalPending,
     required this.paidCount,
     required this.totalMembers,
+    this.extraMarketTotal = 0,
   });
 
   static String _fmt(double v, {int decimals = 2}) {
@@ -129,7 +131,7 @@ class BudgetCard extends StatelessWidget {
           ),
         ),
 
-        // ── Monthly Pending row ───────────────────────────────────
+        // ── ending row ───────────────────────────────────
         const SizedBox(height: 10),
         Container(
           width: double.infinity,
@@ -141,43 +143,128 @@ class BudgetCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFE0B2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.pending_actions_rounded,
-                    color: Color(0xFFE65100), size: 18),
-              ),
-              const SizedBox(width: 12),
+              // Container(
+              //   width: 36,
+              //   height: 36,
+              //   decoration: BoxDecoration(
+              //     color: const Color(0xFFFFE0B2),
+              //     borderRadius: BorderRadius.circular(10),
+              //   ),
+              //   child: const Icon(Icons.pending_actions_rounded,
+              //       color: Color(0xFFE65100), size: 18),
+              // ),
+              // const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Monthly Pending',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: const Color(0xFFE65100),
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'Total Meal Market',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: const Color(0xFFE65100),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Spacer(),
+                        Text(
+                          _fmt(totalPaid - totalPending),
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFE65100),
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '$dueCount member${dueCount == 1 ? '' : 's'} yet to pay',
-                      style: AppTextStyles.metaText,
+                    Row(
+                      children: [
+                        Text(
+                          'Total Extra market',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: const Color(0xFFE65100),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Spacer(),
+                        Text(
+                          _fmt(extraMarketTotal),
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFE65100),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    Row(
+                      children: [
+                        Text(
+                          'Total Market Cost',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: const Color(0xFFE65100),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                           '${totalPaid - totalPending + extraMarketTotal}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFE65100),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    Row(
+                      children: [
+                        Text(
+                          'Available Balance',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: const Color(0xFFE65100),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${totalPaid} - ${totalPaid - totalPending + extraMarketTotal}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFE65100),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    Row(
+                      children: [
+                        Text(
+                          '',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: const Color(0xFFE65100),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          _fmt(totalPending - extraMarketTotal),
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFFE65100),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              Text(
-                _fmt(totalPending),
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFFE65100),
-                ),
-              ),
+
             ],
           ),
         ),
