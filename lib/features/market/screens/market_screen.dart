@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:mealmanagement/features/market/screens/extrea_market-screen.dart';
 import 'package:provider/provider.dart';
+import '../../../data/models/extra_market_entry_model.dart';
+import '../../../data/services/extra_market_service.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_text_styles.dart';
 import '../../../core/providers/app_state.dart';
@@ -27,11 +30,13 @@ class MarketScreenBody extends StatefulWidget {
 class _MarketScreenBodyState extends State<MarketScreenBody> {
   Stream<QuerySnapshot>? _stream;
   StreamSubscription<QuerySnapshot>? _membersSub;
+  StreamSubscription<QuerySnapshot>? _extraMarketSub;
   String? _groupId;
 
   double _totalPaid = 0;
   int _paidCount = 0;
   int _totalMembers = 0;
+  double _extraMarketMonthTotal = 0;
 
   // Selected month for filtering (defaults to current month)
   late DateTime _selectedMonth;
@@ -41,8 +46,18 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
   late final ScrollController _monthScroll;
 
   static const _monthNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -101,12 +116,29 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
           _totalMembers = snap.docs.length;
         });
       });
+
+      _extraMarketSub?.cancel();
+      _extraMarketSub = ExtraMarketService.watchEntries(gid).listen((snap) {
+        if (!mounted) return;
+        final now = DateTime.now();
+        final total = snap.docs
+            .map((d) => ExtraMarketEntry.fromFirestore(d))
+            .where(
+              (e) =>
+                  e.date != null &&
+                  e.date!.year == now.year &&
+                  e.date!.month == now.month,
+            )
+            .fold(0.0, (acc, e) => acc + e.amount);
+        setState(() => _extraMarketMonthTotal = total);
+      });
     }
   }
 
   @override
   void dispose() {
     _membersSub?.cancel();
+    _extraMarketSub?.cancel();
     _monthScroll.dispose();
     super.dispose();
   }
@@ -133,17 +165,16 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
     return StreamBuilder<QuerySnapshot>(
       stream: _stream,
       builder: (context, snapshot) {
-        final allEntries = snapshot.data?.docs
+        final allEntries =
+            snapshot.data?.docs
                 .map((d) => MarketEntry.fromFirestore(d))
                 .toList() ??
             [];
 
         // Filter to selected month
-        final entries =
-            allEntries.where(_inSelectedMonth).toList();
+        final entries = allEntries.where(_inSelectedMonth).toList();
 
-        final bazarTotal =
-            entries.fold(0.0, (acc, e) => acc + e.amount);
+        final bazarTotal = entries.fold(0.0, (acc, e) => acc + e.amount);
 
         return Column(
           children: [
@@ -171,12 +202,14 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
                               totalPending: _totalPaid - bazarTotal,
                               paidCount: _paidCount,
                               totalMembers: _totalMembers,
+                              extraMarketTotal: _extraMarketMonthTotal,
                             )
                           else
                             _buildMonthSummaryCard(bazarTotal),
                           const SizedBox(height: 24),
                           SectionHeader(
-                            title: 'Bazar Kari — ${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}',
+                            title:
+                                'Bazar Kari — ${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}',
                             actionText: '',
                             onAction: null,
                           ),
@@ -184,36 +217,82 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting)
                             const Center(
-                                child: Padding(
-                              padding: EdgeInsets.all(32),
-                              child: CircularProgressIndicator(),
-                            ))
+                              child: Padding(
+                                padding: EdgeInsets.all(32),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
                           else if (entries.isEmpty)
                             _buildEmptyState()
                           else
-                            ...entries.map((e) => Padding(
-                                  padding:
-                                      const EdgeInsets.only(bottom: 14),
-                                  child: MarketEntryCard(
+                            ...entries.map(
+                              (e) => Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: MarketEntryCard(
+                                  entry: e,
+                                  onTap: () => showMarketEntryDetail(
+                                    context: context,
                                     entry: e,
-                                    onTap: () => showMarketEntryDetail(
-                                      context: context,
-                                      entry: e,
-                                      groupId: _groupId ?? '',
-                                    ),
+                                    groupId: _groupId ?? '',
                                   ),
-                                )),
+                                ),
+                              ),
+                            ),
                           const SizedBox(height: 10),
-                          if (['manager', 'bazarKari'].contains(context.watch<AppState>().role))
+                          if ([
+                            'manager',
+                            'bazarKari',
+                          ].contains(context.watch<AppState>().role))
                             AddEntryCta(
                               onTap: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) =>
-                                      const AddMarketEntryScreen(),
+                                  builder: (_) => const AddMarketEntryScreen(),
                                 ),
                               ),
                             ),
+                          GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ExtraMarketScreen(),
+                              ),
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFBF360C),
+                                    Color(0xFFE64A19),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.add_shopping_cart_rounded,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Extra Market',
+                                    style: AppTextStyles.headingSmall.copyWith(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
                           const SizedBox(height: 80),
                         ],
                       ),
@@ -243,7 +322,8 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
           itemCount: _months.length,
           itemBuilder: (context, i) {
             final m = _months[i];
-            final isSelected = m.year == _selectedMonth.year &&
+            final isSelected =
+                m.year == _selectedMonth.year &&
                 m.month == _selectedMonth.month;
             return GestureDetector(
               onTap: () => setState(() {
@@ -252,9 +332,14 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primaryBlue : AppColors.greySurface,
+                  color: isSelected
+                      ? AppColors.primaryBlue
+                      : AppColors.greySurface,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -320,8 +405,11 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.receipt_long_rounded,
-                color: Colors.white, size: 24),
+            child: const Icon(
+              Icons.receipt_long_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
         ],
       ),
@@ -335,20 +423,28 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
         borderRadius: BorderRadius.circular(50),
         boxShadow: const [
           BoxShadow(
-              color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 1)),
+            color: Color(0x0A000000),
+            blurRadius: 8,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       child: TextField(
         decoration: InputDecoration(
           hintText: 'Search বাজার করি history...',
           hintStyle: AppTextStyles.bodySmall.copyWith(fontSize: 14),
-          prefixIcon: const Icon(Icons.search_rounded,
-              color: AppColors.textSecondary, size: 20),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.textSecondary,
+            size: 20,
+          ),
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
         ),
       ),
     );
@@ -360,13 +456,17 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
         padding: const EdgeInsets.all(32),
         child: Column(
           children: [
-            const Icon(Icons.shopping_cart_outlined,
-                size: 48, color: AppColors.textSecondary),
+            const Icon(
+              Icons.shopping_cart_outlined,
+              size: 48,
+              color: AppColors.textSecondary,
+            ),
             const SizedBox(height: 12),
             Text(
               'No entries for ${_monthNames[_selectedMonth.month - 1]} ${_selectedMonth.year}',
-              style: AppTextStyles.headingSmall
-                  .copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.headingSmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
@@ -374,8 +474,9 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
               _isCurrentMonth
                   ? 'Add a market entry using the button below'
                   : 'No market trips were recorded this month',
-              style: AppTextStyles.bodySmall
-                  .copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
           ],

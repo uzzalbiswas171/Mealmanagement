@@ -7,7 +7,9 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/providers/app_state.dart';
 import '../../../core/utils/responsive_helper.dart';
+import '../../../data/models/extra_market_entry_model.dart';
 import '../../../data/models/market_entry_model.dart';
+import '../../../data/services/extra_market_service.dart';
 import '../../../data/services/market_service.dart';
 import '../../../data/services/meal_service.dart';
 import '../../../data/services/member_service.dart';
@@ -160,6 +162,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   StreamSubscription<QuerySnapshot>? _marketSub;
   StreamSubscription<QuerySnapshot>? _mealsSub;
   StreamSubscription<QuerySnapshot>? _monthlyMealsSub;
+  StreamSubscription<QuerySnapshot>? _extraMarketSub;
   String? _groupId;
 
   String _managerName = '';
@@ -176,6 +179,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   double _lastMarketAmount = 0;
   String _lastMarketDate = '';
   double _monthlyMarketTotal = 0;
+  double _extraMarketMonthTotal = 0;
   int _monthlyMeals = 0;
 
   double get _mealRate =>
@@ -291,6 +295,21 @@ class _DashboardBodyState extends State<_DashboardBody> {
       });
     });
 
+    // Extra market monthly total
+    _extraMarketSub?.cancel();
+    _extraMarketSub = ExtraMarketService.watchEntries(gid).listen((snap) {
+      if (!mounted) return;
+      final now = DateTime.now();
+      final total = snap.docs
+          .map((d) => ExtraMarketEntry.fromFirestore(d))
+          .where((e) =>
+              e.date != null &&
+              e.date!.year == now.year &&
+              e.date!.month == now.month)
+          .fold(0.0, (acc, e) => acc + e.amount);
+      setState(() => _extraMarketMonthTotal = total);
+    });
+
     // Monthly total meals — used to compute meal rate.
     // For the current month only count entries up to today; future Meal Off
     // entries (created via the Meal Off screen) must not inflate this total.
@@ -321,6 +340,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
     _marketSub?.cancel();
     _mealsSub?.cancel();
     _monthlyMealsSub?.cancel();
+    _extraMarketSub?.cancel();
     super.dispose();
   }
 
@@ -362,6 +382,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                       totalPending: _totalPaid - _monthlyMarketTotal,
                       paidCount: _paidCount,
                       totalMembers: _totalMembers,
+                      extraMarketTotal: _extraMarketMonthTotal,
                     ),
                     const SizedBox(height: 20),
                     BottomSummarySection(
