@@ -90,60 +90,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       },
       child: Scaffold(
-      backgroundColor: AppColors.scaffoldBg,
-      appBar: AppHeader(
-        action: _headerAction,
-        onActionTap: _currentIndex == 1
-            ? () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              )
-            : null,
-        onAvatarTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ProfileScreen()),
+        backgroundColor: AppColors.scaffoldBg,
+        appBar: AppHeader(
+          action: _headerAction,
+          onActionTap: _currentIndex == 1
+              ? () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                )
+              : null,
+          onAvatarTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+          ),
+        ),
+        body: MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.0)),
+          child: _buildBody(),
+        ),
+        bottomNavigationBar: NavigationBar(
+          height: 65,
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) =>
+              setState(() => _currentIndex = index),
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard_rounded),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.shopping_cart_outlined),
+              selectedIcon: Icon(Icons.shopping_cart_rounded),
+              label: 'Market',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.people_outline_rounded),
+              selectedIcon: Icon(Icons.people_rounded),
+              label: 'Members',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.no_meals_outlined),
+              selectedIcon: Icon(Icons.no_meals_rounded),
+              label: 'Meal Off',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.chat_bubble_outline_rounded),
+              selectedIcon: Icon(Icons.chat_bubble_rounded),
+              label: 'Chat',
+            ),
+          ],
         ),
       ),
-      body: MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: const TextScaler.linear(1.0)),
-        child: _buildBody(),
-      ),
-      bottomNavigationBar: NavigationBar(
-        height: 65,
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shopping_cart_outlined),
-            selectedIcon: Icon(Icons.shopping_cart_rounded),
-            label: 'Market',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline_rounded),
-            selectedIcon: Icon(Icons.people_rounded),
-            label: 'Members',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.no_meals_outlined),
-            selectedIcon: Icon(Icons.no_meals_rounded),
-            label: 'Meal Off',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded),
-            label: 'Chat',
-          ),
-        ],
-      ),
-    ),
     );
   }
 }
@@ -285,7 +286,9 @@ class _DashboardBodyState extends State<_DashboardBody> {
     });
 
     // Today's meals
-    _mealsSub = MealService.watchMealsForDate(gid, DateTime.now()).listen((snap) {
+    _mealsSub = MealService.watchMealsForDate(gid, DateTime.now()).listen((
+      snap,
+    ) {
       if (!mounted) return;
       setState(() {
         _todayMealData = snap.docs
@@ -302,10 +305,12 @@ class _DashboardBodyState extends State<_DashboardBody> {
       final now = DateTime.now();
       final total = snap.docs
           .map((d) => ExtraMarketEntry.fromFirestore(d))
-          .where((e) =>
-              e.date != null &&
-              e.date!.year == now.year &&
-              e.date!.month == now.month)
+          .where(
+            (e) =>
+                e.date != null &&
+                e.date!.year == now.year &&
+                e.date!.month == now.month,
+          )
           .fold(0.0, (acc, e) => acc + e.amount);
       setState(() => _extraMarketMonthTotal = total);
     });
@@ -319,8 +324,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
       if (!mounted) return;
       final total = snap.docs
           .where((d) {
-            final ts = (d.data() as Map<String, dynamic>)['entryDate']
-                as Timestamp?;
+            final ts =
+                (d.data() as Map<String, dynamic>)['entryDate'] as Timestamp?;
             return ts == null || ts.toDate().isBefore(todayCutoff);
           })
           .fold<int>(
@@ -358,6 +363,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
                 myMeals: _myMeals,
                 mealRate: _mealRate,
                 myPaid: _myPaid,
+                totalExtraMarket: _extraMarketMonthTotal,
+                totalNumberOfMembers: _totalMembers.toDouble(),
               ),
               Padding(
                 padding: ResponsiveHelper.screenPadding(context),
@@ -410,8 +417,20 @@ class _MonthlyChartCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    const mo = ['Jan','Feb','Mar','Apr','May','Jun',
-                 'Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mo = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
@@ -444,8 +463,11 @@ class _MonthlyChartCard extends StatelessWidget {
                 color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.table_chart_rounded,
-                  color: Colors.white, size: 24),
+              child: const Icon(
+                Icons.table_chart_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -473,8 +495,11 @@ class _MonthlyChartCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: Colors.white70, size: 24),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white70,
+              size: 24,
+            ),
           ],
         ),
       ),

@@ -143,17 +143,17 @@ class BudgetCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFE0B2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.pending_actions_rounded,
-                    color: Color(0xFFE65100), size: 18),
-              ),
-              const SizedBox(width: 12),
+              // Container(
+              //   width: 36,
+              //   height: 36,
+              //   decoration: BoxDecoration(
+              //     color: const Color(0xFFFFE0B2),
+              //     borderRadius: BorderRadius.circular(10),
+              //   ),
+              //   child: const Icon(Icons.pending_actions_rounded,
+              //       color: Color(0xFFE65100), size: 18),
+              // ),
+              // const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

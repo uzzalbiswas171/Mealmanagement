@@ -8,12 +8,16 @@ class HeroBanner extends StatelessWidget {
   final double myMeals;
   final double mealRate;
   final double myPaid;
+  final double totalExtraMarket;
+  final double totalNumberOfMembers;
 
   const HeroBanner({
     super.key,
     required this.myMeals,
     required this.mealRate,
     required this.myPaid,
+    required this.totalExtraMarket,
+    required this.totalNumberOfMembers,
   });
 
   String _fmt(double v) =>
@@ -25,7 +29,11 @@ class HeroBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final height = ResponsiveHelper.heroBannerHeight(context);
     final cost = myMeals * mealRate;
-    final pending = myPaid - cost;
+    final extraPerMember = totalNumberOfMembers > 0
+        ? totalExtraMarket / totalNumberOfMembers
+        : 0.0;
+    final totalCost = cost + extraPerMember;
+    final pending = myPaid - totalCost;
     final isCredit = pending >= 0;
 
     return SizedBox(
@@ -59,7 +67,7 @@ class HeroBanner extends StatelessWidget {
                   Colors.transparent,
                   AppColors.primaryBlue.withValues(alpha: 0.92),
                 ],
-                stops: const [0.1, 1.0],
+                stops: const [0.0, 1.0],
               ),
             ),
           ),
@@ -82,6 +90,11 @@ class HeroBanner extends StatelessWidget {
                   'Paid = ${_money(myPaid)}  |  cost (${_fmt(myMeals)}×${_money(mealRate)}) = ${_money(cost)}',
                   style: AppTextStyles.heroSubtitle,
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  'Extra = ${_money(totalExtraMarket)} ÷ ${_fmt(totalNumberOfMembers)} = ${_money(extraPerMember)} | Total = ${_money(totalCost)}',
+                  style: AppTextStyles.heroSubtitle,
+                ),
                 const SizedBox(height: 6),
                 Container(
                   height: 1.5,
@@ -102,8 +115,8 @@ class HeroBanner extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       isCredit
-                          ? 'Surplus (${_money(myPaid)} - ${_money(cost)}) = ${_money(pending)}'
-                          : 'Due (${_money(cost)} - ${_money(myPaid)}) = ${_money(-pending)}',
+                          ? 'Surplus (${_money(myPaid)} - ${_money(totalCost)}) = ${_money(pending)}'
+                          : 'Due (${_money(totalCost)} - ${_money(myPaid)}) = ${_money(-pending)}',
                       style: AppTextStyles.heroSubtitle.copyWith(
                         color: isCredit
                             ? Colors.greenAccent
@@ -116,6 +129,77 @@ class HeroBanner extends StatelessWidget {
               ],
             ),
           ),
+          Positioned(
+            bottom: 10,
+            right: 10,
+            child: GestureDetector(
+              onTap: () {
+                Widget row(String label, String value, {bool bold = false}) =>
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(label,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: bold
+                                      ? FontWeight.w700
+                                      : FontWeight.w400)),
+                          Text(value,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: bold
+                                      ? FontWeight.w700
+                                      : FontWeight.w600)),
+                        ],
+                      ),
+                    );
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('My Cost Breakdown',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700)),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        row('Total Meals', _fmt(myMeals)),
+                        row('Meal Rate', _money(mealRate)),
+                        row('Meal Cost', _money(cost)),
+                        const Divider(),
+                        row('Extra Market (total)', _money(totalExtraMarket)),
+                        row('Members', _fmt(totalNumberOfMembers)),
+                        row('Extra / Member', _money(extraPerMember)),
+                        const Divider(),
+                        row('Total Cost', _money(totalCost), bold: true),
+                        row('Paid', _money(myPaid), bold: true),
+                        const Divider(),
+                        row(
+                          isCredit ? 'Surplus' : 'Due',
+                          _money(pending.abs()),
+                          bold: true,
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Close'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              child: Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(10),
+                    image: DecorationImage(image: AssetImage("assets/images/Income Chart.gif"))),
+              ),
+            ),
+          )
+
         ],
       ),
     );
