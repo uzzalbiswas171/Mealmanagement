@@ -68,10 +68,32 @@ class _AddMarketEntryScreenState extends State<AddMarketEntryScreen> {
     });
   }
 
+  void _showToast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message, style: AppTextStyles.bodySmall.copyWith(color: Colors.white)),
+      backgroundColor: AppColors.redAccent,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      duration: const Duration(seconds: 3),
+    ));
+  }
+
   Future<void> _submit() async {
-    final formValid = _formKey.currentState?.validate() == true;
+    final missingFields = <String>[];
+    if (_titleController.text.trim().isEmpty) missingFields.add('Trip Title');
+    if (_amountController.text.trim().isEmpty) missingFields.add('Total Amount');
+
     final itemsValid = _itemsKey.currentState?.validate() == true;
-    if (!formValid || !itemsValid) return;
+    if (!itemsValid) missingFields.add('Item names');
+
+    final formValid = _formKey.currentState?.validate() == true;
+
+    if (!formValid || !itemsValid) {
+      if (missingFields.isNotEmpty) {
+        _showToast('Please fill: ${missingFields.join(', ')}');
+      }
+      return;
+    }
 
     final items = _itemsKey.currentState!.getItems();
     final total = double.tryParse(_amountController.text.trim()) ?? 0.0;
@@ -185,7 +207,7 @@ class _AddMarketEntryScreenState extends State<AddMarketEntryScreen> {
                       ],
                     ),
                     const SizedBox(height: 32),
-                    _SaveButton(onTap: _submit),
+                    _SaveButton(onTap: _submit, isLoading: _loading),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -658,26 +680,42 @@ class _NotesField extends StatelessWidget {
 
 class _SaveButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _SaveButton({required this.onTap});
+  final bool isLoading;
+  const _SaveButton({required this.onTap, this.isLoading = false});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: onTap,
-        icon: const Icon(Icons.shopping_cart_checkout_rounded, size: 20),
-        label: Text(
-          'Save Entry',
-          style: AppTextStyles.headingSmall.copyWith(color: Colors.white, fontSize: 15),
-        ),
+      child: ElevatedButton(
+        onPressed: isLoading ? null : onTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryBlue,
           foregroundColor: Colors.white,
+          disabledBackgroundColor: AppColors.primaryBlue,
+          disabledForegroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 0,
         ),
+        child: isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.shopping_cart_checkout_rounded, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Save Entry',
+                    style: AppTextStyles.headingSmall.copyWith(color: Colors.white, fontSize: 15),
+                  ),
+                ],
+              ),
       ),
     );
   }
