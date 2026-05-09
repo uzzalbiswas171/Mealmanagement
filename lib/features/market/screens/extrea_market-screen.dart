@@ -550,7 +550,25 @@ class _AddEditSheetState extends State<_AddEditSheet> {
   }
 
   Future<void> _save() async {
-    if (_formKey.currentState?.validate() != true) return;
+    final missingFields = <String>[];
+    if (_titleCtrl.text.trim().isEmpty) missingFields.add('Item / Description');
+    if (_amountCtrl.text.trim().isEmpty) missingFields.add('Amount');
+
+    if (_formKey.currentState?.validate() != true) {
+      if (missingFields.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            'Please fill: ${missingFields.join(', ')}',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          backgroundColor: AppColors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 3),
+        ));
+      }
+      return;
+    }
     setState(() => _saving = true);
     try {
       final title = _titleCtrl.text.trim();
