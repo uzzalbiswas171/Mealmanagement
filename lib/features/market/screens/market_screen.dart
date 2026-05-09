@@ -143,6 +143,33 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
     super.dispose();
   }
 
+  Future<void> _confirmDelete(BuildContext context, MarketEntry entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Entry'),
+        content: Text('Delete "${entry.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && _groupId != null) {
+      await MarketService.deleteMarketEntry(
+        groupId: _groupId!,
+        entryId: entry.id,
+      );
+    }
+  }
+
   bool _inSelectedMonth(MarketEntry e) {
     if (e.rawDate == null) return false;
     return e.rawDate!.year == _selectedMonth.year &&
@@ -235,6 +262,9 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
                                     entry: e,
                                     groupId: _groupId ?? '',
                                   ),
+                                  onDelete: context.read<AppState>().role == 'manager'
+                                      ? () => _confirmDelete(context, e)
+                                      : null,
                                 ),
                               ),
                             ),

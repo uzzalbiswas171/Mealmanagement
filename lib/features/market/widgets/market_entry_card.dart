@@ -8,8 +8,9 @@ import '../../../data/models/market_entry_model.dart';
 class MarketEntryCard extends StatelessWidget {
   final MarketEntry entry;
   final VoidCallback? onTap;
+  final VoidCallback? onDelete;
 
-  const MarketEntryCard({super.key, required this.entry, this.onTap});
+  const MarketEntryCard({super.key, required this.entry, this.onTap, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +45,17 @@ class MarketEntryCard extends StatelessWidget {
                   color: AppColors.primaryBlue,
                 ),
               ),
+              if (onDelete != null) ...[
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: onDelete,
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 18,
+                    color: AppColors.redAccent,
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 4),

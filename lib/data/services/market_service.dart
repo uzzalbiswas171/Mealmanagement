@@ -165,6 +165,25 @@ class MarketService {
     });
   }
 
+  /// Deletes a market entry and all its subcollections (items, verifications).
+  static Future<void> deleteMarketEntry({
+    required String groupId,
+    required String entryId,
+  }) async {
+    final entryRef = _market(groupId).doc(entryId);
+    final batch = _db.batch();
+
+    for (final sub in ['items', 'verifications']) {
+      final snap = await entryRef.collection(sub).get();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+    }
+
+    batch.delete(entryRef);
+    await batch.commit();
+  }
+
   /// Current user verifies an entry. Prevents duplicate via doc ID = uid.
   static Future<void> verifyEntry({
     required String groupId,
