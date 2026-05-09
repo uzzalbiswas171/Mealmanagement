@@ -822,16 +822,16 @@ class _ChangePasswordSheet extends StatefulWidget {
 
 class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _currentPassCtrl = TextEditingController();
   final _newPassCtrl = TextEditingController();
-  bool _obscureCurrent = true;
+  final _confirmPassCtrl = TextEditingController();
   bool _obscureNew = true;
+  bool _obscureConfirm = true;
   bool _saving = false;
 
   @override
   void dispose() {
-    _currentPassCtrl.dispose();
     _newPassCtrl.dispose();
+    _confirmPassCtrl.dispose();
     super.dispose();
   }
 
@@ -840,11 +840,6 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
     setState(() => _saving = true);
     try {
       final user = FirebaseAuth.instance.currentUser!;
-      final credential = EmailAuthProvider.credential(
-        email: user.email!,
-        password: _currentPassCtrl.text.trim(),
-      );
-      await user.reauthenticateWithCredential(credential);
       await user.updatePassword(_newPassCtrl.text.trim());
       if (!mounted) return;
       Navigator.pop(context);
@@ -860,8 +855,8 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
-      final msg = e.code == 'wrong-password' || e.code == 'invalid-credential'
-          ? 'Current password is incorrect.'
+      final msg = e.code == 'requires-recent-login'
+          ? 'Please sign out and sign back in, then try again.'
           : e.message ?? 'Failed to update password.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -918,28 +913,6 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
             ),
             const SizedBox(height: 20),
             TextFormField(
-              controller: _currentPassCtrl,
-              obscureText: _obscureCurrent,
-              decoration: InputDecoration(
-                labelText: 'Current Password',
-                prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureCurrent ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                    size: 20,
-                  ),
-                  onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
-                ),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Current password is required';
-                return null;
-              },
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
               controller: _newPassCtrl,
               obscureText: _obscureNew,
               decoration: InputDecoration(
@@ -958,6 +931,29 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'New password is required';
                 if (v.trim().length < 6) return 'Minimum 6 characters';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _confirmPassCtrl,
+              obscureText: _obscureConfirm,
+              decoration: InputDecoration(
+                labelText: 'Confirm New Password',
+                prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Please confirm your password';
+                if (v.trim() != _newPassCtrl.text.trim()) return 'Passwords do not match';
                 return null;
               },
             ),
