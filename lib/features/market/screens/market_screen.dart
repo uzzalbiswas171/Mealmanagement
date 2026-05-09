@@ -144,30 +144,46 @@ class _MarketScreenBodyState extends State<MarketScreenBody> {
   }
 
   Future<void> _confirmDelete(BuildContext context, MarketEntry entry) async {
-    final confirmed = await showDialog<bool>(
+    await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Entry'),
-        content: Text('Delete "${entry.title}"? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+      barrierDismissible: false,
+      builder: (ctx) {
+        bool isDeleting = false;
+        return StatefulBuilder(
+          builder: (ctx, setState) => AlertDialog(
+            title: const Text('Delete Entry'),
+            content: isDeleting
+                ? const SizedBox(
+                    height: 80,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : Text('Delete "${entry.title}"? This cannot be undone.'),
+            actions: isDeleting
+                ? null
+                : [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        setState(() => isDeleting = true);
+                        if (_groupId != null) {
+                          await MarketService.deleteMarketEntry(
+                            groupId: _groupId!,
+                            entryId: entry.id,
+                          );
+                        }
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      },
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('Delete'),
+                    ),
+                  ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+        );
+      },
     );
-    if (confirmed == true && _groupId != null) {
-      await MarketService.deleteMarketEntry(
-        groupId: _groupId!,
-        entryId: entry.id,
-      );
-    }
   }
 
   bool _inSelectedMonth(MarketEntry e) {
