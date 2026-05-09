@@ -7,7 +7,7 @@ import '../../../data/models/meal_entry_model.dart';
 
 class EditMealSheet extends StatefulWidget {
   final MealEntry entry;
-  final ValueChanged<MealEntry> onSave;
+  final Future<void> Function(MealEntry) onSave;
   final bool lockMorning;
   final bool lockNoon;
   final bool lockNight;
@@ -30,6 +30,7 @@ class _EditMealSheetState extends State<EditMealSheet> {
   late final TextEditingController _morningCtrl;
   late final TextEditingController _noonCtrl;
   late final TextEditingController _nightCtrl;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -50,21 +51,26 @@ class _EditMealSheetState extends State<EditMealSheet> {
   String _fmt(double v) =>
       v == v.truncateToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 
-  void _save() {
+  Future<void> _save() async {
     if (_formKey.currentState?.validate() != true) return;
-    widget.onSave(MealEntry(
-      member: widget.entry.member,
-      morningMeal: widget.lockMorning
-          ? widget.entry.morningMeal
-          : double.tryParse(_morningCtrl.text.trim()) ?? 0,
-      noonMeal: widget.lockNoon
-          ? widget.entry.noonMeal
-          : double.tryParse(_noonCtrl.text.trim()) ?? 0,
-      nightMeal: widget.lockNight
-          ? widget.entry.nightMeal
-          : double.tryParse(_nightCtrl.text.trim()) ?? 0,
-    ));
-    Navigator.pop(context);
+    setState(() => _saving = true);
+    try {
+      await widget.onSave(MealEntry(
+        member: widget.entry.member,
+        morningMeal: widget.lockMorning
+            ? widget.entry.morningMeal
+            : double.tryParse(_morningCtrl.text.trim()) ?? 0,
+        noonMeal: widget.lockNoon
+            ? widget.entry.noonMeal
+            : double.tryParse(_noonCtrl.text.trim()) ?? 0,
+        nightMeal: widget.lockNight
+            ? widget.entry.nightMeal
+            : double.tryParse(_nightCtrl.text.trim()) ?? 0,
+      ));
+      if (mounted) Navigator.pop(context);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -121,7 +127,7 @@ class _EditMealSheetState extends State<EditMealSheet> {
                     ),
                   ),
                   TextButton(
-                    onPressed: _save,
+                    onPressed: _saving ? null : _save,
                     child: Text(
                       'Save',
                       style: AppTextStyles.headingSmall
@@ -256,25 +262,41 @@ class _EditMealSheetState extends State<EditMealSheet> {
               // save button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.check_rounded, size: 20),
-                  label: Text(
-                    'Save Changes',
-                    style: AppTextStyles.headingSmall.copyWith(
-                      color: Colors.white,
-                      fontSize: 15,
-                    ),
-                  ),
+                child: ElevatedButton(
+                  onPressed: _saving ? null : _save,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryBlue,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: AppColors.primaryBlue,
+                    disabledForegroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 0,
                   ),
+                  child: _saving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_rounded, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Save Changes',
+                              style: AppTextStyles.headingSmall.copyWith(
+                                color: Colors.white,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
             ],
